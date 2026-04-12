@@ -7,5 +7,5 @@ variable "project_name" {
 }
 
 variable "alert_email" {
-  description = "Email para alertas"
+  default = "expert.its90@gmail.com"
 }
