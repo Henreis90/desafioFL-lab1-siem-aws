@@ -1,62 +1,236 @@
-# Lab 1 - SIEM Base AWS (v3)
+# 🚀 AWS SIEM Lab with OpenSearch (Terraform)
 
-## Objetivo
+![Terraform](https://img.shields.io/badge/IaC-Terraform-623CE4?logo=terraform\&logoColor=white)
+![AWS](https://img.shields.io/badge/Cloud-AWS-232F3E?logo=amazon-aws\&logoColor=white)
+![OpenSearch](https://img.shields.io/badge/Search-OpenSearch-005EB8?logo=opensearch\&logoColor=white)
+![Security](https://img.shields.io/badge/Security-SIEM-red)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-Esta versão do lab sobe a infraestrutura base em Terraform e deixa a parte mais didática para fazer pela console:
+---
 
-- OpenSearch Dashboards
-- Metric Filters
-- CloudWatch Alarms
+## 🎯 Objetivo
 
-## O que o Terraform cria
+Este projeto demonstra como construir um **SIEM funcional na AWS utilizando serviços nativos**, com foco em:
 
-- S3 para logs do CloudTrail
-- CloudTrail
-- CloudWatch Logs
-- IAM Role do CloudTrail para CloudWatch Logs
-- SNS Topic + subscription por e-mail
-- Amazon OpenSearch Service
-- EC2 pequena para gerar eventos via Session Manager
+* 📊 Observabilidade de segurança
+* 🔍 Threat hunting
+* 🛡️ Detecção de anomalias
+* ⚙️ Infraestrutura como código (Terraform)
 
-## O que você vai configurar manualmente na console
+---
 
-- explorar o OpenSearch Dashboards
-- criar dashboards de investigação
-- criar Metric Filter no CloudWatch Logs
-- criar CloudWatch Alarm apontando para o SNS Topic
+## 🧱 Arquitetura
 
-## Atenção a custo
+```text
+                  ┌──────────────┐
+                  │   CloudTrail │
+                  └──────┬───────┘
+                         │
+                         ▼
+              ┌────────────────────┐
+              │ CloudWatch Logs    │
+              └─────────┬──────────┘
+                        │ (Subscription Filter)
+                        ▼
+             ┌───────────────────────┐
+             │  OpenSearch Service   │
+             └─────────┬─────────────┘
+                       │
+         ┌─────────────┴─────────────┐
+         ▼                           ▼
+┌───────────────┐           ┌────────────────┐
+│ Dashboards    │           │ Alerting (SNS) │
+│ (Discover)    │           │                │
+└───────────────┘           └────────────────┘
 
-Este lab pode gerar custo, principalmente por causa do OpenSearch.
-Sugestão:
-- subir
-- validar
-- destruir no mesmo dia
+             ▲
+             │
+      ┌────────────────┐
+      │ EC2 (optional) │
+      │ Event generator│
+      └────────────────┘
+```
 
-## Execução
+---
+
+## 🛠️ Tecnologias utilizadas
+
+* Terraform
+* AWS CloudTrail
+* AWS CloudWatch Logs
+* Amazon OpenSearch Service
+* AWS IAM
+* AWS SNS
+* EC2 (opcional para geração de eventos)
+
+---
+
+## 🚀 Deploy da infraestrutura
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars
 terraform init
 terraform plan
 terraform apply
 ```
 
-## Exemplo inicial de terraform.tfvars
+---
 
-```hcl
-project_name         = "lab1-siem"
-aws_region           = "sa-east-1"
-alert_email          = "SEU_EMAIL_AQUI"
-enable_opensearch    = true
-enable_ec2_generator = true
-allowed_ip_cidr      = "0.0.0.0/0"
-instance_type        = "t3.micro"
+## 🌐 Como acessar o OpenSearch Dashboards
+
+Após o `terraform apply`, você terá um output com a URL do OpenSearch.
+
+### 🔍 Opção 1 — via Terraform output
+
+```bash
+terraform output opensearch_dashboards_url
 ```
 
-## Testes iniciais
+Exemplo:
 
-### 1. Gerar eventos pela sua máquina local
+```text
+https://search-lab1-siem-xxxx.us-east-1.es.amazonaws.com/_dashboards/
+```
+
+---
+
+### 🔍 Opção 2 — via console AWS
+
+1. Acesse:
+
+   * **Amazon OpenSearch Service**
+2. Clique no domínio criado
+3. Copie:
+
+   * **Dashboards URL**
+
+---
+
+### ⚠️ Possíveis erros de acesso
+
+Se aparecer:
+
+```text
+User: anonymous is not authorized
+```
+
+👉 Ajuste a **Access Policy do domínio** para permitir acesso ao seu usuário ou IP.
+
+---
+
+## 🔗 Configurar envio de logs para OpenSearch
+
+1. Acesse:
+
+   * CloudWatch → Log Groups
+
+2. Selecione o log group do CloudTrail
+
+3. Vá em:
+
+   * **Actions → Subscription filters → Create Amazon OpenSearch Service subscription filter**
+
+4. Configure:
+
+   * Destino: OpenSearch
+   * Role IAM (Lambda execution role)
+   * Filter pattern: vazio
+
+5. Clique em:
+
+   * **Start streaming**
+
+---
+
+## 📦 Validar ingestão
+
+No OpenSearch (Dev Tools):
+
+```json
+GET _cat/indices?v
+```
+
+Você verá algo como:
+
+```text
+cwl-2026.04.13
+```
+
+---
+
+## 📊 Criar Index Pattern
+
+* Vá em: Dashboards Management → Index Patterns
+* Nome:
+
+```text
+cwl-*
+```
+
+* Campo de tempo:
+
+```text
+@timestamp
+```
+
+---
+
+## 🔍 Exploração (Discover)
+
+Exemplos de queries:
+
+```text
+eventSource: "sts.amazonaws.com"
+eventSource: "s3.amazonaws.com"
+eventName: "AssumeRole"
+sourceIPAddress: "10."
+```
+
+---
+
+## 📊 Dashboards sugeridos
+
+### 🔐 1. Atividade por identidade
+
+* Eventos por usuário
+* Tipo de identidade (IAMUser / AssumedRole / AWSService)
+
+---
+
+### 🧠 2. Uso de serviços
+
+* Top serviços acessados
+* Ações críticas (STS, IAM, S3)
+
+---
+
+### 🌐 3. Origem de acesso
+
+* Top IPs
+* Interno vs externo
+* Timeline por IP
+
+---
+
+### ⏱️ 4. Timeline de eventos
+
+* Volume ao longo do tempo
+* Identificação de picos
+
+---
+
+## 🚨 Alertas sugeridos
+
+* 🔥 Uso excessivo de STS (`AssumeRole`)
+* 🚨 Acesso de IP desconhecido
+* 📈 Pico de eventos por usuário
+* 🔓 Ações administrativas IAM
+* 📦 Acesso massivo ao S3
+
+---
+
+## 🧪 Gerar eventos
+
+Execute:
 
 ```bash
 aws sts get-caller-identity
@@ -64,50 +238,48 @@ aws s3 ls
 aws iam list-users
 ```
 
-### 2. Gerar eventos pela EC2 via Session Manager
+Ou use a EC2 criada no lab.
 
-- EC2
-- selecione a instância do lab
-- Connect
-- Session Manager
+---
 
-Depois rode:
+## 🧠 Casos de uso
 
-```bash
-aws sts get-caller-identity
-aws s3 ls
-aws iam list-users
-```
+* Threat Hunting
+* Insider Threat Detection
+* Auditoria (CVM, LGPD)
+* Investigação de incidentes
+* Monitoramento comportamental
 
-## Parte manual na console
+---
 
-### SNS
-Depois do apply, confirme o e-mail da subscription do SNS.
+## ⚠️ Custos
 
-### CloudWatch Logs
-Verifique o log group criado e confirme se os eventos do CloudTrail estão chegando.
+* OpenSearch pode gerar custo relevante
+* CloudWatch Logs ingest + streaming também
 
-### Metric Filter sugerido
-Crie um filtro para detectar falha de login no console:
-- campo eventName = ConsoleLogin
-- campo errorMessage = Failed authentication
-
-### Alarm sugerido
-Crie um alarme com:
-- threshold >= 1
-- período de 5 minutos
-- ação = SNS Topic do lab
-
-### OpenSearch Dashboards
-Use a URL de output para abrir o Dashboards e montar visualizações simples:
-- ações por usuário
-- eventos por horário
-- chamadas IAM
-- acessos S3
-- falhas de login
-
-## Destruição
+👉 Use apenas para lab e destrua após uso:
 
 ```bash
 terraform destroy
 ```
+
+---
+
+## 🚀 Próximos passos
+
+* OpenSearch Alerting
+* Integração com SOAR
+* Enriquecimento de logs
+* Playbooks de resposta
+
+---
+
+## 🤝 Contribuição
+
+Contribuições são bem-vindas!
+
+---
+
+## ⭐ Se esse projeto te ajudou
+
+Deixe uma estrela ⭐ no repositório!

@@ -169,9 +169,13 @@ resource "aws_security_group" "opensearch" {
   }
 }
 
+locals {
+  opensearch_domain_name = replace(lower("${var.project_name}-${random_string.suffix.result}"), "_", "-")
+}
+
 resource "aws_opensearch_domain" "this" {
   count          = var.enable_opensearch ? 1 : 0
-  domain_name    = replace(lower("${var.project_name}-${random_string.suffix.result}"), "_", "-")
+  domain_name = local.opensearch_domain_name
   engine_version = "OpenSearch_2.11"
 
   cluster_config {
@@ -197,24 +201,27 @@ resource "aws_opensearch_domain" "this" {
     enforce_https = true
   }
 
-  vpc_options {
-    subnet_ids         = [data.aws_subnets.default.ids[0]]
-    security_group_ids = [aws_security_group.opensearch[0].id]
-  }
+ # vpc_options {
+ #   subnet_ids         = [data.aws_subnets.default.ids[0]]
+ #   security_group_ids = [aws_security_group.opensearch[0].id]
+ # }
 
   access_policies = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+  Version = "2012-10-17"
+  Statement = [
+    {
+      Effect = "Allow"
+      Principal = "*"
+      Action = "es:ESHttp*"
+      Resource = "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${local.opensearch_domain_name}/*"
+      Condition = {
+        IpAddress = {
+          "aws:SourceIp" = var.allowed_ip_cidr
         }
-        Action   = "es:*"
-        Resource = "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/*"
       }
-    ]
-  })
+    }
+  ]
+})
 }
 
 data "aws_ami" "amazon_linux" {

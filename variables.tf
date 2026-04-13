@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "Região AWS"
   type        = string
-  default     = "sa-east-1"
+  default     = "us-east-1"
 }
 
 variable "project_name" {
@@ -30,7 +30,7 @@ variable "enable_ec2_generator" {
 variable "allowed_ip_cidr" {
   description = "CIDR permitido para acesso HTTPS ao OpenSearch"
   type        = string
-  default     = "0.0.0.0/0"
+  default     = "186.233.26.238/32"
 }
 
 variable "instance_type" {
